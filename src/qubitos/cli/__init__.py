@@ -1,3 +1,6 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Command-line interface for QubitOS.
 
 This module provides the `qubit-os` CLI tool for interacting

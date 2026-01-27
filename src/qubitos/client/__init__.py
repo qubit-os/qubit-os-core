@@ -1,3 +1,6 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """HAL gRPC client for QubitOS.
 
 This module provides the Python client for communicating with the

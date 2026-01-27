@@ -1,3 +1,6 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for qubitos.validation module.
 
 These tests verify both the fallback validators and AgentBible integration.

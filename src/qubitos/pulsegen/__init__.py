@@ -1,3 +1,6 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Pulse optimization module for QubitOS.
 
 This module provides GRAPE and DRAG pulse optimization algorithms

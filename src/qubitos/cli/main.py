@@ -1,3 +1,6 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """QubitOS CLI entry point.
 
 This is the main entry point for the `qubit-os` command-line tool.

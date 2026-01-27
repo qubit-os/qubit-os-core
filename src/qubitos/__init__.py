@@ -1,3 +1,5 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
 """QubitOS - Open-Source Quantum Control Kernel.
 
 QubitOS provides pulse optimization and hardware abstraction for quantum computing.

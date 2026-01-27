@@ -1,3 +1,6 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Validation module for QubitOS.
 
 This module provides validation utilities for quantum-specific data types,

@@ -1,3 +1,6 @@
+# Copyright 2026 QubitOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Calibration management module for QubitOS.
 
 This module handles loading, validation, and management of

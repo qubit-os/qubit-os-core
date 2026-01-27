@@ -55,9 +55,20 @@ dmypy.json
 logs/
 *.log
 
-# Config with secrets
+# Config with secrets - NEVER COMMIT THESE
 config.local.yaml
 .env
+.env.*
+*.pem
+*.key
+*_secret*
+*_token*
+credentials.json
+secrets.yaml
+secrets.json
+
+# Pre-commit
+.secrets.baseline
 
 # Calibration (keep defaults, ignore user files)
 calibration/qutip_simulator/

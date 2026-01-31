@@ -65,6 +65,9 @@ Documentation = "https://qubit-os.github.io/qubit-os-core/"
 Repository = "https://github.com/qubit-os/qubit-os-core"
 Issues = "https://github.com/qubit-os/qubit-os-core/issues"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/qubitos"]
 

@@ -41,10 +41,10 @@ from .grape import (
 )
 from .hamiltonians import (
     PAULI_I,
+    PAULI_MATRICES,
     PAULI_X,
     PAULI_Y,
     PAULI_Z,
-    PAULI_MATRICES,
     STANDARD_GATES,
     build_hamiltonian,
     embed_gate,

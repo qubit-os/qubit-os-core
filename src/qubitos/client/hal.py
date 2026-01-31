@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 class HealthStatus(Enum):
     """Backend health status."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNAVAILABLE = "unavailable"
@@ -52,6 +53,7 @@ class HealthStatus(Enum):
 
 class BackendType(Enum):
     """Backend type."""
+
     SIMULATOR = "simulator"
     HARDWARE = "hardware"
 
@@ -59,7 +61,7 @@ class BackendType(Enum):
 @dataclass
 class HardwareInfo:
     """Information about a quantum backend.
-    
+
     Attributes:
         name: Backend name
         backend_type: Type of backend (simulator or hardware)
@@ -71,6 +73,7 @@ class HardwareInfo:
         supports_noise_model: Whether noise modeling is supported
         software_version: Backend software version
     """
+
     name: str
     backend_type: BackendType
     tier: str
@@ -85,7 +88,7 @@ class HardwareInfo:
 @dataclass
 class MeasurementResult:
     """Result of a pulse execution.
-    
+
     Attributes:
         request_id: Unique request identifier
         pulse_id: Pulse identifier
@@ -95,6 +98,7 @@ class MeasurementResult:
         fidelity_estimate: Estimated gate fidelity (if computed)
         state_vector: State vector as list of (real, imag) tuples (if requested)
     """
+
     request_id: str
     pulse_id: str
     bitstring_counts: dict[str, int]
@@ -107,12 +111,13 @@ class MeasurementResult:
 @dataclass
 class HealthCheckResult:
     """Result of a health check.
-    
+
     Attributes:
         status: Overall health status
         message: Optional status message
         backends: Per-backend health status
     """
+
     status: HealthStatus
     message: str = ""
     backends: dict[str, HealthStatus] = field(default_factory=dict)
@@ -120,7 +125,7 @@ class HealthCheckResult:
 
 class HALClientError(Exception):
     """Error from HAL client operations."""
-    
+
     def __init__(self, message: str, code: str | None = None):
         self.code = code
         super().__init__(message)
@@ -128,16 +133,16 @@ class HALClientError(Exception):
 
 class HALClient:
     """Async gRPC client for the HAL server.
-    
+
     The client provides methods for:
     - Executing pulse sequences
     - Checking backend health
     - Getting hardware information
-    
+
     Usage:
         >>> async with HALClient("localhost:50051") as client:
         ...     result = await client.execute_pulse(...)
-        
+
     Or without context manager:
         >>> client = HALClient("localhost:50051")
         >>> await client.connect()
@@ -146,7 +151,7 @@ class HALClient:
         ... finally:
         ...     await client.close()
     """
-    
+
     def __init__(
         self,
         address: str = "localhost:50051",
@@ -155,7 +160,7 @@ class HALClient:
         credentials: grpc.ChannelCredentials | None = None,
     ):
         """Initialize the HAL client.
-        
+
         Args:
             address: HAL server address (host:port)
             timeout: Default timeout for RPC calls in seconds
@@ -166,43 +171,41 @@ class HALClient:
         self.timeout = timeout
         self.secure = secure
         self.credentials = credentials
-        
+
         self._channel: grpc.aio.Channel | None = None
         self._stub = None
         self._connected = False
-    
+
     async def connect(self) -> None:
         """Connect to the HAL server."""
         if self._connected:
             return
-        
+
         logger.info(f"Connecting to HAL server at {self.address}")
-        
+
         try:
             if self.secure:
                 if self.credentials is None:
                     self.credentials = grpc.ssl_channel_credentials()
-                self._channel = grpc.aio.secure_channel(
-                    self.address, self.credentials
-                )
+                self._channel = grpc.aio.secure_channel(self.address, self.credentials)
             else:
                 self._channel = grpc.aio.insecure_channel(self.address)
-            
+
             # Import generated protobuf stubs
             # Note: These would be generated from qubit-os-proto
             # For now, we use a dynamic approach
             self._stub = await self._create_stub()
             self._connected = True
-            
+
             logger.info("Connected to HAL server")
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to HAL server: {e}")
-            raise HALClientError(f"Connection failed: {e}", code="CONNECTION_ERROR")
-    
+            raise HALClientError(f"Connection failed: {e}", code="CONNECTION_ERROR") from e
+
     async def _create_stub(self):
         """Create the gRPC stub.
-        
+
         In a real implementation, this would use generated protobuf classes.
         For now, we use a placeholder that works with the generic gRPC API.
         """
@@ -211,10 +214,10 @@ class HALClient:
         #     quantum_backend_pb2_grpc as backend_grpc
         # )
         # return backend_grpc.QuantumBackendStub(self._channel)
-        
+
         # Placeholder for when protos aren't generated yet
         return _PlaceholderStub(self._channel)
-    
+
     async def close(self) -> None:
         """Close the connection to the HAL server."""
         if self._channel is not None:
@@ -223,87 +226,85 @@ class HALClient:
             self._stub = None
             self._connected = False
             logger.info("Disconnected from HAL server")
-    
-    async def __aenter__(self) -> "HALClient":
+
+    async def __aenter__(self) -> HALClient:
         """Async context manager entry."""
         await self.connect()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         await self.close()
-    
+
     def _ensure_connected(self) -> None:
         """Ensure the client is connected."""
         if not self._connected:
             raise HALClientError(
-                "Not connected to HAL server. Call connect() first.",
-                code="NOT_CONNECTED"
+                "Not connected to HAL server. Call connect() first.", code="NOT_CONNECTED"
             )
-    
+
     async def health_check(
         self,
         backend_name: str | None = None,
     ) -> HealthCheckResult:
         """Check the health of the HAL server and backends.
-        
+
         Args:
             backend_name: Specific backend to check (or None for all)
-        
+
         Returns:
             HealthCheckResult with status information
         """
         self._ensure_connected()
-        
+
         try:
             response = await self._stub.health_check(
                 backend_name=backend_name,
                 timeout=self.timeout,
             )
-            
+
             # Parse response
             status = _parse_health_status(response.status)
-            backends = {
-                name: _parse_health_status(s)
-                for name, s in response.backends.items()
-            }
-            
+            backends = {name: _parse_health_status(s) for name, s in response.backends.items()}
+
             return HealthCheckResult(
                 status=status,
                 message=response.message,
                 backends=backends,
             )
-            
+
         except grpc.RpcError as e:
             raise HALClientError(
                 f"Health check failed: {e.details()}",
                 code=e.code().name,
-            )
-    
+            ) from e
+
     async def get_hardware_info(
         self,
         backend_name: str | None = None,
     ) -> HardwareInfo:
         """Get hardware information for a backend.
-        
+
         Args:
             backend_name: Backend name (or None for default)
-        
+
         Returns:
             HardwareInfo with backend details
         """
         self._ensure_connected()
-        
+
         try:
             response = await self._stub.get_hardware_info(
                 backend_name=backend_name,
                 timeout=self.timeout,
             )
-            
+
             info = response.info
             return HardwareInfo(
                 name=info.name,
-                backend_type=BackendType.SIMULATOR if info.backend_type == 0 else BackendType.HARDWARE,
+                backend_type=BackendType.SIMULATOR
+                if info.backend_type == 0
+                else BackendType.HARDWARE,
                 tier=info.tier,
                 num_qubits=info.num_qubits,
                 available_qubits=list(info.available_qubits),
@@ -312,13 +313,13 @@ class HALClient:
                 supports_noise_model=info.supports_noise_model,
                 software_version=info.software_version,
             )
-            
+
         except grpc.RpcError as e:
             raise HALClientError(
                 f"Get hardware info failed: {e.details()}",
                 code=e.code().name,
-            )
-    
+            ) from e
+
     async def execute_pulse(
         self,
         i_envelope: Sequence[float],
@@ -333,7 +334,7 @@ class HALClient:
         include_noise: bool = False,
     ) -> MeasurementResult:
         """Execute a pulse sequence on a backend.
-        
+
         Args:
             i_envelope: I (in-phase) pulse envelope
             q_envelope: Q (quadrature) pulse envelope
@@ -345,12 +346,12 @@ class HALClient:
             measurement_basis: Measurement basis ("X", "Y", or "Z")
             return_state_vector: Whether to return the state vector
             include_noise: Whether to include noise simulation
-        
+
         Returns:
             MeasurementResult with bitstring counts and metadata
         """
         self._ensure_connected()
-        
+
         try:
             response = await self._stub.execute_pulse(
                 pulse_id=pulse_id or "",
@@ -366,25 +367,28 @@ class HALClient:
                 include_noise=include_noise,
                 timeout=self.timeout,
             )
-            
+
             # Check for errors
             if response.error:
                 raise HALClientError(
                     response.error.message,
                     code=response.error.code,
                 )
-            
+
             # Parse result
             result = response.result
             bitstring_counts = dict(result.bitstring_counts.counts)
-            
+
             state_vector = None
             if result.state_vector_real and result.state_vector_imag:
-                state_vector = list(zip(
-                    result.state_vector_real,
-                    result.state_vector_imag,
-                ))
-            
+                state_vector = list(
+                    zip(
+                        result.state_vector_real,
+                        result.state_vector_imag,
+                        strict=False,
+                    )
+                )
+
             return MeasurementResult(
                 request_id=response.request_id,
                 pulse_id=response.pulse_id,
@@ -394,16 +398,16 @@ class HALClient:
                 fidelity_estimate=result.fidelity_estimate if result.fidelity_estimate else None,
                 state_vector=state_vector,
             )
-            
+
         except grpc.RpcError as e:
             raise HALClientError(
                 f"Execute pulse failed: {e.details()}",
                 code=e.code().name,
-            )
-    
+            ) from e
+
     async def list_backends(self) -> list[str]:
         """List available backends.
-        
+
         Returns:
             List of backend names
         """
@@ -426,45 +430,39 @@ def _parse_health_status(status: int) -> HealthStatus:
 
 class _PlaceholderStub:
     """Placeholder stub for when protos aren't generated.
-    
+
     This allows the code to be valid Python even without generated protos.
     In production, this would be replaced with actual generated stubs.
     """
-    
+
     def __init__(self, channel):
         self._channel = channel
-    
+
     async def health_check(self, **kwargs):
-        raise NotImplementedError(
-            "Proto stubs not generated. Run buf generate in qubit-os-proto."
-        )
-    
+        raise NotImplementedError("Proto stubs not generated. Run buf generate in qubit-os-proto.")
+
     async def get_hardware_info(self, **kwargs):
-        raise NotImplementedError(
-            "Proto stubs not generated. Run buf generate in qubit-os-proto."
-        )
-    
+        raise NotImplementedError("Proto stubs not generated. Run buf generate in qubit-os-proto.")
+
     async def execute_pulse(self, **kwargs):
-        raise NotImplementedError(
-            "Proto stubs not generated. Run buf generate in qubit-os-proto."
-        )
+        raise NotImplementedError("Proto stubs not generated. Run buf generate in qubit-os-proto.")
 
 
 # Synchronous wrapper for convenience
 class HALClientSync:
     """Synchronous wrapper for HALClient.
-    
+
     Useful for scripts and REPL usage where async isn't convenient.
-    
+
     Example:
         >>> with HALClientSync("localhost:50051") as client:
         ...     health = client.health_check()
     """
-    
+
     def __init__(self, *args, **kwargs):
         self._client = HALClient(*args, **kwargs)
         self._loop: asyncio.AbstractEventLoop | None = None
-    
+
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         if self._loop is None or self._loop.is_closed():
             # Python 3.10+ deprecates get_event_loop() when no loop is running
@@ -475,39 +473,31 @@ class HALClientSync:
                 self._loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(self._loop)
         return self._loop
-    
+
     def connect(self) -> None:
         self._get_loop().run_until_complete(self._client.connect())
-    
+
     def close(self) -> None:
         self._get_loop().run_until_complete(self._client.close())
-    
-    def __enter__(self) -> "HALClientSync":
+
+    def __enter__(self) -> HALClientSync:
         self.connect()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
-    
+
     def health_check(self, backend_name: str | None = None) -> HealthCheckResult:
-        return self._get_loop().run_until_complete(
-            self._client.health_check(backend_name)
-        )
-    
+        return self._get_loop().run_until_complete(self._client.health_check(backend_name))
+
     def get_hardware_info(self, backend_name: str | None = None) -> HardwareInfo:
-        return self._get_loop().run_until_complete(
-            self._client.get_hardware_info(backend_name)
-        )
-    
+        return self._get_loop().run_until_complete(self._client.get_hardware_info(backend_name))
+
     def execute_pulse(self, **kwargs) -> MeasurementResult:
-        return self._get_loop().run_until_complete(
-            self._client.execute_pulse(**kwargs)
-        )
-    
+        return self._get_loop().run_until_complete(self._client.execute_pulse(**kwargs))
+
     def list_backends(self) -> list[str]:
-        return self._get_loop().run_until_complete(
-            self._client.list_backends()
-        )
+        return self._get_loop().run_until_complete(self._client.list_backends())
 
 
 __all__ = [

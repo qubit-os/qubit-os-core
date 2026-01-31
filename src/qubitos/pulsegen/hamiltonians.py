@@ -10,7 +10,7 @@ standard quantum gates.
 Pauli String Format:
     Hamiltonians can be specified as sums of Pauli strings:
     "0.5 * X0 + 0.3 * Z0 Z1 + 1.2 * Y1"
-    
+
     Where:
     - Coefficients are real numbers
     - Pauli operators: I, X, Y, Z
@@ -42,6 +42,7 @@ import numpy as np
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
     from .grape import GateType
 
 # =============================================================================
@@ -76,24 +77,33 @@ GATE_SX = np.array([[1 + 1j, 1 - 1j], [1 - 1j, 1 + 1j]], dtype=np.complex128) / 
 
 # Two-qubit gates (in computational basis |00>, |01>, |10>, |11>)
 GATE_CZ = np.diag([1, 1, 1, -1]).astype(np.complex128)
-GATE_CNOT = np.array([
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 0, 0, 1],
-    [0, 0, 1, 0],
-], dtype=np.complex128)
-GATE_ISWAP = np.array([
-    [1, 0, 0, 0],
-    [0, 0, 1j, 0],
-    [0, 1j, 0, 0],
-    [0, 0, 0, 1],
-], dtype=np.complex128)
-GATE_SWAP = np.array([
-    [1, 0, 0, 0],
-    [0, 0, 1, 0],
-    [0, 1, 0, 0],
-    [0, 0, 0, 1],
-], dtype=np.complex128)
+GATE_CNOT = np.array(
+    [
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 0, 1],
+        [0, 0, 1, 0],
+    ],
+    dtype=np.complex128,
+)
+GATE_ISWAP = np.array(
+    [
+        [1, 0, 0, 0],
+        [0, 0, 1j, 0],
+        [0, 1j, 0, 0],
+        [0, 0, 0, 1],
+    ],
+    dtype=np.complex128,
+)
+GATE_SWAP = np.array(
+    [
+        [1, 0, 0, 0],
+        [0, 0, 1, 0],
+        [0, 1, 0, 0],
+        [0, 0, 0, 1],
+    ],
+    dtype=np.complex128,
+)
 
 STANDARD_GATES = {
     "I": PAULI_I,
@@ -116,12 +126,13 @@ STANDARD_GATES = {
 # Hamiltonian Construction
 # =============================================================================
 
+
 def tensor_product(operators: list[NDArray[np.complex128]]) -> NDArray[np.complex128]:
     """Compute tensor product of a list of operators.
-    
+
     Args:
         operators: List of 2x2 matrices
-    
+
     Returns:
         Tensor product matrix
     """
@@ -136,29 +147,27 @@ def pauli_string_to_matrix(
     num_qubits: int,
 ) -> NDArray[np.complex128]:
     """Convert a Pauli string like "X0 Z1" to a matrix.
-    
+
     Args:
         pauli_string: String of Pauli operators with qubit indices
         num_qubits: Total number of qubits
-    
+
     Returns:
         Matrix representation of the Pauli string
     """
     # Parse individual operators
     pattern = r"([IXYZ])(\d+)"
     matches = re.findall(pattern, pauli_string.upper())
-    
+
     # Start with identity on all qubits
     operators = [PAULI_I.copy() for _ in range(num_qubits)]
-    
+
     for pauli, qubit_str in matches:
         qubit = int(qubit_str)
         if qubit >= num_qubits:
-            raise ValueError(
-                f"Qubit index {qubit} >= num_qubits {num_qubits}"
-            )
+            raise ValueError(f"Qubit index {qubit} >= num_qubits {num_qubits}")
         operators[qubit] = PAULI_MATRICES[pauli]
-    
+
     return tensor_product(operators)
 
 
@@ -167,26 +176,26 @@ def parse_pauli_string(
     num_qubits: int,
 ) -> NDArray[np.complex128]:
     """Parse a Pauli string expression into a Hamiltonian matrix.
-    
+
     Format: "coeff1 * P1 P2 + coeff2 * P3 - coeff3 * P4 P5"
-    
+
     Args:
         expression: Pauli string expression
         num_qubits: Number of qubits
-    
+
     Returns:
         Hamiltonian matrix
-    
+
     Example:
         >>> H = parse_pauli_string("0.5 * X0 + 0.3 * Z0 Z1", num_qubits=2)
     """
-    dim = 2 ** num_qubits
+    dim = 2**num_qubits
     H = np.zeros((dim, dim), dtype=np.complex128)
-    
+
     # Normalize expression
     expression = expression.replace("-", "+-")
     terms = [t.strip() for t in expression.split("+") if t.strip()]
-    
+
     for term in terms:
         # Parse coefficient and operators
         if "*" in term:
@@ -196,13 +205,13 @@ def parse_pauli_string(
             # No coefficient means 1.0
             coeff = 1.0
             ops_str = term
-        
+
         # Parse Pauli operators
         ops_str = ops_str.strip()
         if ops_str:
             matrix = pauli_string_to_matrix(ops_str, num_qubits)
             H += coeff * matrix
-    
+
     return H
 
 
@@ -212,17 +221,17 @@ def build_hamiltonian(
     num_qubits: int = 1,
 ) -> tuple[NDArray[np.complex128], list[NDArray[np.complex128]]]:
     """Build drift and control Hamiltonians.
-    
+
     Args:
         drift: Drift Hamiltonian (Pauli string or matrix)
         controls: List of control Hamiltonians
         num_qubits: Number of qubits
-    
+
     Returns:
         Tuple of (drift_hamiltonian, control_hamiltonians)
     """
-    dim = 2 ** num_qubits
-    
+    dim = 2**num_qubits
+
     # Process drift
     if drift is None:
         H0 = np.zeros((dim, dim), dtype=np.complex128)
@@ -230,7 +239,7 @@ def build_hamiltonian(
         H0 = parse_pauli_string(drift, num_qubits)
     else:
         H0 = drift
-    
+
     # Process controls
     if controls is None:
         # Default: X and Y on each qubit
@@ -245,7 +254,7 @@ def build_hamiltonian(
                 Hc.append(parse_pauli_string(ctrl, num_qubits))
             else:
                 Hc.append(ctrl)
-    
+
     return H0, Hc
 
 
@@ -253,61 +262,71 @@ def build_hamiltonian(
 # Target Unitaries
 # =============================================================================
 
+
 def rotation_gate(
     axis: str,
     angle: float,
 ) -> NDArray[np.complex128]:
     """Generate a rotation gate around a Pauli axis.
-    
+
     R_P(theta) = exp(-i * theta/2 * P)
                = cos(theta/2) * I - i * sin(theta/2) * P
-    
+
     Args:
         axis: Rotation axis ("X", "Y", or "Z")
         angle: Rotation angle in radians
-    
+
     Returns:
         2x2 rotation matrix
     """
     c = np.cos(angle / 2)
     s = np.sin(angle / 2)
-    
+
     if axis.upper() == "X":
-        return np.array([
-            [c, -1j * s],
-            [-1j * s, c],
-        ], dtype=np.complex128)
+        return np.array(
+            [
+                [c, -1j * s],
+                [-1j * s, c],
+            ],
+            dtype=np.complex128,
+        )
     elif axis.upper() == "Y":
-        return np.array([
-            [c, -s],
-            [s, c],
-        ], dtype=np.complex128)
+        return np.array(
+            [
+                [c, -s],
+                [s, c],
+            ],
+            dtype=np.complex128,
+        )
     elif axis.upper() == "Z":
-        return np.array([
-            [c - 1j * s, 0],
-            [0, c + 1j * s],
-        ], dtype=np.complex128)
+        return np.array(
+            [
+                [c - 1j * s, 0],
+                [0, c + 1j * s],
+            ],
+            dtype=np.complex128,
+        )
     else:
         raise ValueError(f"Unknown rotation axis: {axis}")
 
 
 def get_target_unitary(
-    gate: str | "GateType",
+    gate: str | GateType,
     num_qubits: int = 1,
     qubit_indices: list[int] | None = None,
     angle: float | None = None,
 ) -> NDArray[np.complex128]:
     """Get the target unitary for a quantum gate.
-    
+
     Args:
         gate: Gate name or GateType enum
         num_qubits: Total number of qubits in the system
         qubit_indices: Which qubits the gate acts on (default: first qubit(s))
         angle: Rotation angle for parameterized gates (RX, RY, RZ)
-    
+
     Returns:
         Unitary matrix for the gate
-    
+
     Example:
         >>> X = get_target_unitary("X", num_qubits=1)
         >>> CZ = get_target_unitary("CZ", num_qubits=2, qubit_indices=[0, 1])
@@ -317,7 +336,7 @@ def get_target_unitary(
     if hasattr(gate, "value"):
         gate = gate.value
     gate = gate.upper()
-    
+
     # Handle rotation gates
     if gate in ("RX", "RY", "RZ"):
         if angle is None:
@@ -328,24 +347,23 @@ def get_target_unitary(
         base_gate = STANDARD_GATES[gate]
     else:
         raise ValueError(f"Unknown gate: {gate}")
-    
+
     # Determine gate size
     gate_qubits = int(np.log2(base_gate.shape[0]))
-    
+
     # Set default qubit indices
     if qubit_indices is None:
         qubit_indices = list(range(gate_qubits))
-    
+
     if len(qubit_indices) != gate_qubits:
         raise ValueError(
-            f"Gate {gate} acts on {gate_qubits} qubits, "
-            f"but {len(qubit_indices)} indices provided"
+            f"Gate {gate} acts on {gate_qubits} qubits, but {len(qubit_indices)} indices provided"
         )
-    
+
     # If system size matches gate size, return directly
     if num_qubits == gate_qubits:
         return base_gate
-    
+
     # Otherwise, embed gate in larger Hilbert space
     return embed_gate(base_gate, num_qubits, qubit_indices)
 
@@ -356,22 +374,20 @@ def embed_gate(
     qubit_indices: list[int],
 ) -> NDArray[np.complex128]:
     """Embed a gate in a larger Hilbert space.
-    
+
     Args:
         gate: Gate unitary matrix
         num_qubits: Total number of qubits
         qubit_indices: Which qubits the gate acts on
-    
+
     Returns:
         Embedded gate matrix
     """
-    dim = 2 ** num_qubits
-    gate_dim = gate.shape[0]
-    gate_qubits = len(qubit_indices)
-    
+    dim = 2**num_qubits
+
     # Build the full unitary
     result = np.zeros((dim, dim), dtype=np.complex128)
-    
+
     for i in range(dim):
         for j in range(dim):
             # Extract the bits for the gate qubits
@@ -380,17 +396,17 @@ def embed_gate(
             for k, q in enumerate(qubit_indices):
                 i_gate |= ((i >> q) & 1) << k
                 j_gate |= ((j >> q) & 1) << k
-            
+
             # Check if non-gate qubits match
             i_other = i
             j_other = j
             for q in qubit_indices:
                 i_other &= ~(1 << q)
                 j_other &= ~(1 << q)
-            
+
             if i_other == j_other:
                 result[i, j] = gate[i_gate, j_gate]
-    
+
     return result
 
 

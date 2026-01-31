@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QubitCalibration:
     """Calibration data for a single qubit.
-    
+
     Attributes:
         index: Qubit index
         frequency_ghz: Qubit frequency in GHz
@@ -45,6 +45,7 @@ class QubitCalibration:
         gate_fidelity: Single-qubit gate fidelity
         drive_amplitude: Drive amplitude scaling factor
     """
+
     index: int
     frequency_ghz: float = 5.0
     anharmonicity_mhz: float = -300.0
@@ -58,7 +59,7 @@ class QubitCalibration:
 @dataclass
 class CouplerCalibration:
     """Calibration data for a qubit-qubit coupler.
-    
+
     Attributes:
         qubit_a: First qubit index
         qubit_b: Second qubit index
@@ -66,6 +67,7 @@ class CouplerCalibration:
         cz_fidelity: CZ gate fidelity
         cz_duration_ns: CZ gate duration in nanoseconds
     """
+
     qubit_a: int
     qubit_b: int
     coupling_mhz: float = 5.0
@@ -76,7 +78,7 @@ class CouplerCalibration:
 @dataclass
 class BackendCalibration:
     """Complete calibration data for a backend.
-    
+
     Attributes:
         name: Backend name
         version: Calibration version string
@@ -86,6 +88,7 @@ class BackendCalibration:
         couplers: Per-coupler calibration data
         metadata: Additional metadata
     """
+
     name: str
     version: str = "1.0"
     timestamp: str = ""
@@ -97,22 +100,23 @@ class BackendCalibration:
 
 class CalibrationError(Exception):
     """Error loading or validating calibration data."""
+
     pass
 
 
 class CalibrationLoader:
     """Loader for calibration data files.
-    
+
     Supports YAML calibration files with validation.
     """
-    
+
     def __init__(
         self,
         calibration_dir: str | Path | None = None,
         validate: bool = True,
     ):
         """Initialize the calibration loader.
-        
+
         Args:
             calibration_dir: Default directory for calibration files
             validate: Whether to validate loaded calibrations
@@ -120,21 +124,21 @@ class CalibrationLoader:
         self.calibration_dir = Path(calibration_dir) if calibration_dir else None
         self.validate = validate
         self._cache: dict[str, BackendCalibration] = {}
-    
+
     def load(
         self,
         path: str | Path,
         use_cache: bool = True,
     ) -> BackendCalibration:
         """Load calibration data from a file.
-        
+
         Args:
             path: Path to calibration file
             use_cache: Whether to use cached data
-        
+
         Returns:
             BackendCalibration with loaded data
-        
+
         Raises:
             CalibrationError: If file cannot be loaded or validation fails
         """
@@ -160,49 +164,49 @@ class CalibrationLoader:
                 )
 
         cache_key = str(resolved_path)
-        
+
         # Check cache
         if use_cache and cache_key in self._cache:
             logger.debug(f"Using cached calibration for {path}")
             return self._cache[cache_key]
-        
+
         # Load file
         if not path.exists():
             raise CalibrationError(f"Calibration file not found: {path}")
-        
+
         try:
             with open(path) as f:
                 data = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            raise CalibrationError(f"Failed to parse calibration file: {e}")
-        
+            raise CalibrationError(f"Failed to parse calibration file: {e}") from e
+
         # Parse calibration
         calibration = self._parse_calibration(data)
-        
+
         # Validate
         if self.validate:
             self._validate_calibration(calibration)
-        
+
         # Cache
         self._cache[cache_key] = calibration
-        
+
         logger.info(f"Loaded calibration from {path}")
         return calibration
-    
+
     def load_for_backend(self, backend_name: str) -> BackendCalibration:
         """Load calibration for a named backend.
-        
+
         Searches for calibration files in the calibration directory.
-        
+
         Args:
             backend_name: Backend name (e.g., "qutip_simulator")
-        
+
         Returns:
             BackendCalibration for the backend
         """
         if self.calibration_dir is None:
             raise CalibrationError("No calibration directory configured")
-        
+
         # Try common file patterns
         patterns = [
             f"{backend_name}.yaml",
@@ -210,16 +214,14 @@ class CalibrationLoader:
             f"defaults/{backend_name}.yaml",
             f"defaults/{backend_name}.yml",
         ]
-        
+
         for pattern in patterns:
             path = self.calibration_dir / pattern
             if path.exists():
                 return self.load(path)
-        
-        raise CalibrationError(
-            f"No calibration found for backend: {backend_name}"
-        )
-    
+
+        raise CalibrationError(f"No calibration found for backend: {backend_name}")
+
     def _parse_calibration(self, data: dict[str, Any]) -> BackendCalibration:
         """Parse calibration data from a dictionary."""
         # Parse qubits
@@ -236,7 +238,7 @@ class CalibrationLoader:
                 drive_amplitude=q_data.get("drive_amplitude", 1.0),
             )
             qubits.append(qubit)
-        
+
         # Parse couplers
         couplers = []
         for c_data in data.get("couplers", []):
@@ -248,7 +250,7 @@ class CalibrationLoader:
                 cz_duration_ns=c_data.get("cz_duration_ns", 40.0),
             )
             couplers.append(coupler)
-        
+
         return BackendCalibration(
             name=data.get("name", "unknown"),
             version=data.get("version", "1.0"),
@@ -258,63 +260,58 @@ class CalibrationLoader:
             couplers=couplers,
             metadata=data.get("metadata", {}),
         )
-    
+
     def _validate_calibration(self, calibration: BackendCalibration) -> None:
         """Validate calibration data."""
         errors = []
-        
+
         for qubit in calibration.qubits:
             # Validate T1/T2
             t_result = validate_calibration_t1_t2(qubit.t1_us, qubit.t2_us)
             if not t_result.valid:
-                errors.extend([
-                    f"Qubit {qubit.index}: {e}" for e in t_result.errors
-                ])
-            
+                errors.extend([f"Qubit {qubit.index}: {e}" for e in t_result.errors])
+
             # Validate fidelities
             ro_result = validate_fidelity(
                 qubit.readout_fidelity, f"qubit_{qubit.index}_readout_fidelity"
             )
             if not ro_result.valid:
                 errors.extend(ro_result.errors)
-            
+
             gate_result = validate_fidelity(
                 qubit.gate_fidelity, f"qubit_{qubit.index}_gate_fidelity"
             )
             if not gate_result.valid:
                 errors.extend(gate_result.errors)
-        
+
         for coupler in calibration.couplers:
             cz_result = validate_fidelity(
-                coupler.cz_fidelity,
-                f"coupler_{coupler.qubit_a}_{coupler.qubit_b}_cz_fidelity"
+                coupler.cz_fidelity, f"coupler_{coupler.qubit_a}_{coupler.qubit_b}_cz_fidelity"
             )
             if not cz_result.valid:
                 errors.extend(cz_result.errors)
-        
+
         if errors:
-            raise CalibrationError(
-                f"Calibration validation failed:\n" + "\n".join(errors)
-            )
-    
+            raise CalibrationError("Calibration validation failed:\n" + "\n".join(errors))
+
     def clear_cache(self) -> None:
         """Clear the calibration cache."""
         self._cache.clear()
-    
+
     def save(
         self,
         calibration: BackendCalibration,
         path: str | Path,
     ) -> None:
         """Save calibration data to a file.
-        
+
         Args:
             calibration: Calibration data to save
             path: Output file path
         """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         data = {
             "name": calibration.name,
             "version": calibration.version,
@@ -345,10 +342,10 @@ class CalibrationLoader:
             ],
             "metadata": calibration.metadata,
         }
-        
+
         with open(path, "w") as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-        
+
         logger.info(f"Saved calibration to {path}")
 
 
@@ -366,10 +363,10 @@ def get_default_loader() -> CalibrationLoader:
 
 def load_calibration(path: str | Path) -> BackendCalibration:
     """Load calibration data using the default loader.
-    
+
     Args:
         path: Path to calibration file
-    
+
     Returns:
         BackendCalibration with loaded data
     """

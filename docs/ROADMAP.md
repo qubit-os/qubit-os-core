@@ -309,13 +309,13 @@ Each phase has explicit CI criteria that must be met before proceeding. CI jobs 
 
 | Repo | Required CI Jobs | Notes |
 |------|-----------------|-------|
-| qubit-os-proto | lint, generate-check, test-python | Rust test may be disabled if tonic compatibility unresolved |
+| qubit-os-proto | lint, build-rust, build-python | Protos compile at build time |
 | qubit-os-hardware | check, build, test, docker | Docker must build; tests may be minimal |
 | qubit-os-core | lint, test | Type check may be disabled with TODO |
 
 **Pre-Flight Checklist (Phase 0 → Phase 1):**
 - [ ] All 3 repos have passing CI (green badges)
-- [ ] Proto generation committed and CI-verified (`buf generate` output matches)
+- [ ] Proto builds successfully (Rust: `cargo build`, Python: `pip install .`)
 - [ ] Dockerfile builds successfully
 - [ ] `buf lint` passes with no errors
 - [ ] `ruff check` and `ruff format --check` pass
@@ -370,15 +370,22 @@ Pin to minimum versions that are known to work:
 
 ### Generated Code Policy
 
-**Proto → Rust/Python bindings:**
-- Generated code MUST be committed to `generated/` directory
-- CI verifies regeneration matches committed code
-- Workflow: edit `.proto` → run `buf generate` → commit both
+**Proto → Rust/Python bindings are generated at build time, NOT committed.**
 
-**Why committed (not CI-generated):**
-- Multi-repo consumption without requiring `buf` installed
-- PR diffs show downstream impact of proto changes
-- CI catches sync drift (proto edited but not regenerated)
+| Language | Generation Method |
+|----------|-------------------|
+| Rust | `build.rs` + `tonic-build` runs on `cargo build` |
+| Python | `setup.py` + `grpcio-tools` runs on `pip install` |
+
+**Benefits:**
+- No sync drift possible - always regenerated from source
+- No merge conflicts in generated files
+- Cleaner repo, smaller diffs
+- Standard patterns for both ecosystems
+
+**Consumption:**
+- Rust: `qubit-os-proto = { git = "https://github.com/qubit-os/qubit-os-proto" }`
+- Python: `pip install git+https://github.com/qubit-os/qubit-os-proto.git`
 
 ### Disabled CI Jobs
 

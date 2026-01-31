@@ -1600,10 +1600,14 @@ jobs:
 
 **Generated Code Policy:**
 
-Proto-generated code (Python and Rust bindings) is committed to `generated/` and verified by CI:
-- CI runs `buf generate` and checks output matches committed code
-- Benefits: Multi-repo consumption, PR visibility, reproducibility
-- Required workflow: edit `.proto` → run `buf generate` → commit both
+Proto-generated code is built at compile/install time, NOT committed:
+
+| Language | Method |
+|----------|--------|
+| Rust | `build.rs` + `tonic-build` on `cargo build` |
+| Python | `setup.py` + `grpcio-tools` on `pip install` |
+
+Benefits: No sync drift, no merge conflicts, standard ecosystem patterns.
 
 **Disabled CI Job Policy:**
 

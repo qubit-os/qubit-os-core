@@ -42,7 +42,7 @@ jobs:
           pip install -e ".[dev]"
       
       - name: MyPy
-        run: mypy src/qubitos/ --ignore-missing-imports
+        run: mypy src/qubitos/ --ignore-missing-imports --config-file pyproject.toml
 
   test:
     name: Test (Python ${{ matrix.python-version }})
